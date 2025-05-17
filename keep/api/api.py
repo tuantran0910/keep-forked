@@ -33,12 +33,13 @@ from keep.api.middlewares import LoggingMiddleware
 from keep.api.routes import (
     actions,
     ai,
+    ai_assistant,
     alerts,
+    cel,
     dashboard,
     deduplications,
     extraction,
     facets,
-    cel,
     healthcheck,
     incidents,
     maintenance,
@@ -274,6 +275,9 @@ def get_app(
     app.include_router(preset.router, prefix="/preset", tags=["preset"])
     app.include_router(
         mapping.router, prefix="/mapping", tags=["enrichment", "mapping"]
+    )
+    app.include_router(
+        ai_assistant.router, prefix="/ai-assistant", tags=["ai", "ai-assistant"]
     )
     app.include_router(
         auth_groups.router, prefix="/auth/groups", tags=["auth", "groups"]

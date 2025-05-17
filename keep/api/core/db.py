@@ -63,6 +63,7 @@ from keep.api.models.ai_external import (
 from keep.api.models.alert import AlertStatus
 from keep.api.models.db.action import Action
 from keep.api.models.db.ai_external import *  # pylint: disable=unused-wildcard-import
+from keep.api.models.db.ai_suggestion import *  # pylint: disable=unused-wildcard-import
 from keep.api.models.db.alert import *  # pylint: disable=unused-wildcard-import
 from keep.api.models.db.dashboard import *  # pylint: disable=unused-wildcard-import
 from keep.api.models.db.enrichment_event import *  # pylint: disable=unused-wildcard-import
@@ -176,7 +177,6 @@ def retry_on_db_error(f):
         try:
             return f(*args, **kwargs)
         except OperationalError as e:
-
             if hasattr(e, "session") and not e.session.is_active:
                 e.session.rollback()
 
@@ -1725,7 +1725,6 @@ def get_last_alerts(
     with_incidents=False,
     fingerprints=None,
 ) -> list[Alert]:
-
     with Session(engine) as session:
         dialect_name = session.bind.dialect.name
 
@@ -2328,7 +2327,6 @@ def create_incident_for_grouping_rule(
     past_incident: Optional[Incident] = None,
     session: Optional[Session] = None,
 ):
-
     with existed_or_new_session(session) as session:
         # Create and add a new incident if it doesn't exist
         incident = Incident(
@@ -2984,7 +2982,6 @@ def get_provider_distribution(
                         "last_alert_received": last_alert_timestamp,
                     }
                 else:
-
                     provider_distribution[provider_key]["last_alert_received"] = max(
                         provider_distribution[provider_key]["last_alert_received"],
                         last_alert_timestamp,
@@ -3568,9 +3565,7 @@ def get_alert_audit(
 
 def get_incidents_meta_for_tenant(tenant_id: str) -> dict:
     with Session(engine) as session:
-
         if session.bind.dialect.name == "sqlite":
-
             sources_join = func.json_each(Incident.sources).table_valued("value")
             affected_services_join = func.json_each(
                 Incident.affected_services
@@ -3607,7 +3602,6 @@ def get_incidents_meta_for_tenant(tenant_id: str) -> dict:
             }
 
         elif session.bind.dialect.name == "mysql":
-
             sources_join = func.json_table(
                 Incident.sources, Column("value", String(127))
             ).table_valued("value")
@@ -3648,7 +3642,6 @@ def get_incidents_meta_for_tenant(tenant_id: str) -> dict:
                 ),
             }
         elif session.bind.dialect.name == "postgresql":
-
             sources_join = func.json_array_elements_text(Incident.sources).table_valued(
                 "value"
             )
@@ -4131,7 +4124,6 @@ def get_incident_alerts_and_links_by_incident_id(
     include_unlinked: bool = False,
 ) -> tuple[List[tuple[Alert, LastAlertToIncident]], int]:
     with existed_or_new_session(session) as session:
-
         query = (
             session.query(
                 Alert,
@@ -4221,7 +4213,6 @@ def get_alerts_data_for_incident(
     Returns: dict {sources: list[str], services: list[str], count: int}
     """
     with existed_or_new_session(session) as session:
-
         fields = (
             get_json_extract_field(session, Alert.event, "service"),
             Alert.provider_type,
@@ -4284,9 +4275,7 @@ def add_alerts_to_incident(
     )
 
     with existed_or_new_session(session) as session:
-
         with session.no_autoflush:
-
             # Use a set for faster membership checks
             existing_fingerprints = set(
                 session.exec(
@@ -4387,8 +4376,7 @@ def add_alerts_to_incident(
 
             if not override_count:
                 alerts_count = (
-                    select(count(LastAlertToIncident.fingerprint))
-                    .where(
+                    select(count(LastAlertToIncident.fingerprint)).where(
                         LastAlertToIncident.deleted_at == NULL_FOR_DELETED_AT,
                         LastAlertToIncident.tenant_id == tenant_id,
                         LastAlertToIncident.incident_id == incident.id,
@@ -4432,13 +4420,14 @@ def add_alerts_to_incident(
                         .where(
                             Incident.id == incident_id,
                             Incident.tenant_id == tenant_id,
-                        ).values(
-                            alerts_count = alerts_count,
-                            last_seen_time = last_seen_at,
-                            start_time = started_at,
-                            affected_services = new_affected_services,
-                            severity = new_severity,
-                            sources = new_sources,
+                        )
+                        .values(
+                            alerts_count=alerts_count,
+                            last_seen_time=last_seen_at,
+                            start_time=started_at,
+                            affected_services=new_affected_services,
+                            severity=new_severity,
+                            sources=new_sources,
                         )
                     )
                     session.commit()
@@ -4673,8 +4662,7 @@ def remove_alerts_to_incident_by_incident_id(
             last_seen_at = parse(last_seen_at)
 
         alerts_count = (
-            select(count(LastAlertToIncident.fingerprint))
-            .where(
+            select(count(LastAlertToIncident.fingerprint)).where(
                 LastAlertToIncident.deleted_at == NULL_FOR_DELETED_AT,
                 LastAlertToIncident.tenant_id == tenant_id,
                 LastAlertToIncident.incident_id == incident.id,
@@ -4686,7 +4674,8 @@ def remove_alerts_to_incident_by_incident_id(
             .where(
                 Incident.id == incident_id,
                 Incident.tenant_id == tenant_id,
-            ).values(
+            )
+            .values(
                 alerts_count=alerts_count,
                 last_seen_time=last_seen_at,
                 start_time=started_at,
@@ -5223,12 +5212,10 @@ def is_all_alerts_in_status(
     status: AlertStatus = AlertStatus.RESOLVED,
     session: Optional[Session] = None,
 ):
-
     if incident and incident.alerts_count == 0:
         return False
 
     with existed_or_new_session(session) as session:
-
         enriched_status_field = get_json_extract_field(
             session, AlertEnrichment.enrichments, "status"
         )
@@ -5304,12 +5291,10 @@ def is_first_incident_alert_resolved(
 def is_edge_incident_alert_resolved(
     incident: Incident, direction: Callable, session: Optional[Session] = None
 ) -> bool:
-
     if incident.alerts_count == 0:
         return False
 
     with existed_or_new_session(session) as session:
-
         enriched_status_field = get_json_extract_field(
             session, AlertEnrichment.enrichments, "status"
         )
@@ -5349,7 +5334,6 @@ def get_alerts_metrics_by_provider(
     end_date: Optional[datetime] = None,
     fields: Optional[List[str]] = [],
 ) -> Dict[str, Dict[str, Any]]:
-
     dynamic_field_sums = [
         func.sum(
             case(
@@ -5635,7 +5619,6 @@ def set_last_alert(
                 if last_alert and last_alert.timestamp.replace(
                     tzinfo=tz.UTC
                 ) < alert.timestamp.replace(tzinfo=tz.UTC):
-
                     logger.info(
                         f"Update last alert for `{fingerprint}`: {last_alert.alert_id} -> {alert.id}",
                         extra={
@@ -5851,3 +5834,169 @@ def create_single_tenant_for_e2e(tenant_id: str) -> None:
         except Exception:
             logger.exception("Failed to create single tenant")
             pass
+
+
+def get_all_ai_assistant_conversations(
+    tenant_id: str, user_email: str
+) -> List[Conversation]:
+    """Get all conversations for a user."""
+    with Session(engine) as session:
+        conversations = session.exec(
+            select(Conversation).where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.user_email == user_email,
+            )
+        ).all()
+
+    return conversations
+
+
+def get_ai_assistant_conversation(
+    tenant_id: str, user_email: str, conversation_id: UUID
+) -> Conversation:
+    """Get an AI Assistant conversation by ID."""
+    with Session(engine) as session:
+        conversation = session.exec(
+            select(Conversation).where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.user_email == user_email,
+                Conversation.id == conversation_id,
+            )
+        ).first()
+
+    if not conversation:
+        raise ValueError(f"Conversation {conversation_id} not found")
+    return conversation
+
+
+def create_ai_assistant_conversation(
+    tenant_id: str,
+    user_email: str,
+    title: str = None,
+    context: Dict = None,
+    metadata: Dict = None,
+    initial_messages: List[Dict] = None,
+) -> Conversation:
+    """Create a new AI Assistant conversation."""
+    with Session(engine) as session:
+        conversation = Conversation(
+            tenant_id=tenant_id,
+            user_email=user_email,
+            title=title,
+            context=context,
+            conversation_metadata=metadata,
+        )
+        session.add(conversation)
+        session.flush()
+
+        if not initial_messages:
+            system_message = Message(
+                content="""You are an AI assistant for Keep, an alert management platform.
+                You help users manage, understand, and resolve alerts and incidents.
+                Be concise, helpful, and accurate.
+                If you don't know something, say so rather than making up information.""",
+                role=MessageRole.SYSTEM,
+                conversation_id=conversation.id,
+            )
+            session.add(system_message)
+        else:
+            for msg_data in initial_messages:
+                message = Message(
+                    content=msg_data.get("content"),
+                    role=msg_data.get("role"),
+                    conversation_id=conversation.id,
+                )
+                session.add(message)
+
+        session.commit()
+        session.refresh(conversation)
+        return conversation
+
+
+def update_ai_assistant_conversation(
+    tenant_id: str,
+    user_email: str,
+    conversation_id: UUID,
+    update_data: Dict,
+) -> Conversation:
+    """Update an AI Assistant conversation."""
+    with Session(engine) as session:
+        conversation = session.exec(
+            select(Conversation).where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.user_email == user_email,
+                Conversation.id == conversation_id,
+            )
+        ).first()
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        for key, value in update_data.items():
+            if hasattr(conversation, key):
+                setattr(conversation, key, value)
+
+        session.commit()
+        session.refresh(conversation)
+        return conversation
+
+
+def add_ai_assistant_message(
+    tenant_id: str,
+    user_email: str,
+    conversation_id: UUID,
+    content: str,
+    role: str,
+    metadata: Dict = None,
+) -> Message:
+    """Add a message to an AI Assistant conversation."""
+    with Session(engine) as session:
+        conversation = session.exec(
+            select(Conversation).where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.user_email == user_email,
+                Conversation.id == conversation_id,
+            )
+        ).first()
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        message = Message(
+            content=content,
+            role=role,
+            message_metadata=metadata,
+            conversation_id=conversation_id,
+        )
+        session.add(message)
+        session.commit()
+        session.refresh(message)
+        return message
+
+
+def get_ai_assistant_messages(
+    tenant_id: str,
+    user_email: str,
+    conversation_id: UUID,
+) -> List[Dict]:
+    """Get messages for an AI Assistant conversation."""
+    with Session(engine) as session:
+        conversation = session.exec(
+            select(Conversation).where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.user_email == user_email,
+                Conversation.id == conversation_id,
+            )
+        ).first()
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        return [
+            {
+                "id": str(msg.id),
+                "role": msg.role,
+                "content": msg.content,
+                "created_at": msg.created_at,
+                "updated_at": msg.updated_at,
+                "metadata": msg.message_metadata,
+            }
+            for msg in conversation.messages
+        ]
